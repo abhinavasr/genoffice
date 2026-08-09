@@ -2008,12 +2008,12 @@ export function IconAiImage(props: IconProps) {
   )
 }
 
-/** Genspark brand mark (rounded-square sparkle badge), inline so it renders
+/** AI panel brand mark (rounded-square sparkle badge), inline so it renders
  * crisply at device resolution instead of going through <img> rasterization */
-export function GensparkMark({ size = 30 }: { size?: number }) {
+export function AiSparkMark({ size = 30 }: { size?: number }) {
   return (
     <svg
-      className="genspark-mark"
+      className="ai-spark-mark"
       width={size}
       height={size}
       viewBox="0 0 130 130.025"

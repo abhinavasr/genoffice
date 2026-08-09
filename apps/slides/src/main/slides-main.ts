@@ -24,7 +24,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { existsSync, mkdirSync } from 'node:fs'
 import { userInfo } from 'node:os'
 import { dirname, join } from 'node:path'
-import { gskApiKey, gskSlideGenerate, setGskProxyUrl } from '@genoffice/ai-search'
+import { codexSlideGenerate, hasCodexAuth, setAiCliProxyUrl } from '@genoffice/ai-search'
 import {
   appMenuLabels,
   contextMenuLabels,
@@ -1290,11 +1290,12 @@ export function registerSlidesIpc(): void {
     )
     return rebuildSlide(session, op.slideIndex)
   })
-  // ── Cloud single-page generation (gsk slide_generate): brief → cloud HTML+conversion → one-slide
-  // pptx saved to a temp file. Returns a marker string that flows through the same pagesHtml slots
-  // as locally generated HTML; slides:html-to-pptx recognizes it and reads the bytes instead of
-  // converting. Enabled when gsk is logged in; GENOFFICE_CLOUD_SLIDE=0 is the kill switch.
-  const cloudSlideEnabled = () => process.env.GENOFFICE_CLOUD_SLIDE !== '0' && !!gskApiKey()
+  // ── Codex single-page generation: brief → Codex-authored pptx saved to a temp
+  // file. Returns a marker string that flows through the same pagesHtml slots as
+  // locally generated HTML; slides:html-to-pptx recognizes it and reads the bytes
+  // instead of converting. Enabled when Codex is logged in; GENOFFICE_CLOUD_SLIDE=0
+  // is the kill switch.
+  const cloudSlideEnabled = () => process.env.GENOFFICE_CLOUD_SLIDE !== '0' && hasCodexAuth()
 
   ipcMain.handle('slides:cloud-gen-status', () => ({ enabled: cloudSlideEnabled() }))
 
@@ -1314,11 +1315,8 @@ export function registerSlidesIpc(): void {
     ): Promise<{ ok: boolean; marker?: string; error?: string }> => {
       if (!cloudSlideEnabled()) return { ok: false, error: 'cloud slide generation is disabled' }
       try {
-        // ultra = opus-class model, matching the local path's quality tier; GENOFFICE_CLOUD_SLIDE_TIER=standard opts down
-        const tier = process.env.GENOFFICE_CLOUD_SLIDE_TIER === 'standard' ? 'standard' : 'ultra'
         const started = Date.now()
-        const { bytes, model } = await gskSlideGenerate({
-          tier,
+        const { bytes } = await codexSlideGenerate({
           brief: String(op.brief ?? ''),
           title: op.title ? String(op.title) : undefined,
           styleSkill: op.styleSkill ? String(op.styleSkill) : undefined,
@@ -1327,9 +1325,7 @@ export function registerSlidesIpc(): void {
           width: op.width,
           height: op.height,
         })
-        console.log(
-          `[cloud-slide] page generated: tier=${tier} model=${model} bytes=${bytes.length} ms=${Date.now() - started}`,
-        )
+        console.log(`[cloud-slide] page generated: bytes=${bytes.length} ms=${Date.now() - started}`)
         const dir = join(app.getPath('temp'), 'genoffice-cloud-pages')
         mkdirSync(dir, { recursive: true })
         const path = join(dir, `${randomUUID()}.pptx`)
@@ -3935,9 +3931,9 @@ export function installSlidesMenu(): void {
  */
 async function applyMainProcessProxy(): Promise<void> {
   const setDispatcher = async (proxyUrl: string) => {
-    // spawned gsk CLI children do their own fetch and never see the
+    // spawned codex CLI children do their own fetch and never see the
     // dispatcher below — forward the proxy to them via env
-    setGskProxyUrl(proxyUrl)
+    setAiCliProxyUrl(proxyUrl)
     try {
       const { ProxyAgent, setGlobalDispatcher } = await import('undici')
       setGlobalDispatcher(new ProxyAgent(proxyUrl))
@@ -3961,9 +3957,9 @@ async function applyMainProcessProxy(): Promise<void> {
   // No environment variables: read the system proxy (requires app ready)
   try {
     await app.whenReady()
-    // PAC/rule proxies answer per-host: probe the host the login flow, the
-    // Genspark LLM proxy and the gsk CLI actually target
-    const resolved = await electronSession.defaultSession.resolveProxy('https://www.genspark.ai/')
+    // PAC/rule proxies answer per-host: probe a representative external AI
+    // endpoint (also what the Codex CLI and the OpenAI provider talk to)
+    const resolved = await electronSession.defaultSession.resolveProxy('https://api.openai.com/')
     // resolveProxy returns strings like "PROXY 127.0.0.1:1087" or "DIRECT"
     const m = /PROXY\s+([^;]+)/i.exec(resolved || '')
     if (m) {

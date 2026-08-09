@@ -5,8 +5,8 @@
  * (image generation, media analysis, style templates).
  */
 import { app, ipcMain, shell } from 'electron'
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { dirname, extname, join } from 'node:path'
 import {
   AiCreditsError,
   AiTimeoutError,
@@ -16,19 +16,18 @@ import {
   type AiSettings,
   type AiStreamChunk,
   type AiStreamRequest,
-  type GenSparkAccountStatus,
+  type CodexAccountStatus,
   type LegacyAiSettings,
 } from '@genoffice/ai-provider'
 import { fetchRemoteImage } from '@genoffice/electron-utils'
 import {
   webSearch,
   imageSearch,
-  ensureGenofficeLogin,
-  gskApiKey,
-  gskGenerateImage,
-  gskAnalyzeMedia,
-  gskLoginInfo,
-  hasGskAuth,
+  codexAccountEmail,
+  ensureCodexLogin,
+  codexGenerateImage,
+  codexAnalyzeMedia,
+  hasCodexAuth,
 } from '@genoffice/ai-search'
 import { addPicture, replacePictureBytes } from '@genoffice/pptx-engine'
 import { EMU_PER_PX_96 } from '@genoffice/pptx-render'
@@ -58,25 +57,23 @@ const activeAiStreams = new Map<string, AbortController>()
 export function registerAiIpc(): void {
   ipcMain.handle('ai:get-settings', (): AiSettings => {
     const stored = readJson<Partial<AiSettings> & LegacyAiSettings>(AI_SETTINGS_PATH(), {})
-    const settings = resolveAiSettings(stored, defaultAiSettings())
-    // AI features all go through Genspark (gsk login); stored settings that chose another provider are normalized back
-    settings.provider = 'genspark'
-    return settings
+    return resolveAiSettings(stored, defaultAiSettings())
   })
 
-  // Genspark account (gsk login state): the auth source for AI features; when logged out the frontend uses this to guide login
+  // Codex CLI account (`codex login` state): the auth source for the search/image-gen/media
+  // tools; when unavailable the frontend uses this to guide sign-in
   ipcMain.handle(
-    'ai:gsk-status',
-    async (_event, withEmail?: boolean): Promise<GenSparkAccountStatus> => {
-      if (!hasGskAuth()) return { loggedIn: false }
+    'ai:codex-status',
+    async (_event, withEmail?: boolean): Promise<CodexAccountStatus> => {
+      if (!hasCodexAuth()) return { loggedIn: false }
       if (!withEmail) return { loggedIn: true }
-      const info = await gskLoginInfo()
-      return info?.email ? { loggedIn: true, email: info.email } : { loggedIn: true }
+      const email = codexAccountEmail()
+      return email ? { loggedIn: true, email } : { loggedIn: true }
     },
   )
 
-  ipcMain.handle('ai:gsk-login', () => {
-    ensureGenofficeLogin((url) => void shell.openExternal(url))
+  ipcMain.handle('ai:codex-login', () => {
+    ensureCodexLogin((url) => void shell.openExternal(url))
   })
 
   ipcMain.handle('ai:set-settings', (_event, settings: AiSettings) => {
@@ -88,20 +85,12 @@ export function registerAiIpc(): void {
     const tools = request.tools ?? []
     const maxTokens = request.maxTokens ?? 8192
     const provider = settings.provider
-    let config = settings.providers?.[provider]
-    // The genspark key never enters the settings file; it is fetched from the gsk login state per request
-    if (provider === 'genspark' && config && !config.apiKey) {
-      config = { ...config, apiKey: gskApiKey() }
-    }
+    const config = settings.providers?.[provider]
     const send = (chunk: AiStreamChunk) => {
       if (!event.sender.isDestroyed()) event.sender.send('ai:stream-chunk', chunk)
     }
     if (!config?.apiKey) {
-      send({
-        requestId,
-        type: 'error',
-        error: provider === 'genspark' ? tm('errGskNotLoggedIn') : tm('errNoApiKey', { provider }),
-      })
+      send({ requestId, type: 'error', error: tm('errNoApiKey', { provider }) })
       return
     }
     if (!config.model) {
@@ -170,13 +159,52 @@ export function registerAiIpc(): void {
   })
 }
 
+const IMAGE_MIME_BY_EXT: Record<string, string> = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+}
+
+/**
+ * Reads a locally-generated image file into a data: URL and removes its
+ * scratch directory. Used to hand a Codex-generated image to the renderer
+ * through the same `{ url }` contract insert_web_image already expects,
+ * without a network fetch (the bytes never left this machine).
+ */
+function localImageToDataUrl(path: string): string {
+  const mime = IMAGE_MIME_BY_EXT[extname(path).toLowerCase()] ?? 'image/png'
+  const base64 = readFileSync(path).toString('base64')
+  try {
+    rmSync(dirname(path), { recursive: true, force: true })
+  } catch {
+    /* best-effort scratch cleanup */
+  }
+  return `data:${mime};base64,${base64}`
+}
+
+/** data: URLs decode inline (no network fetch, so no SSRF surface); anything else goes through fetchRemoteImage's guard. */
+async function resolveImageBytes(
+  url: string,
+): Promise<{ buf: Buffer; contentType: string } | null> {
+  if (url.startsWith('data:')) {
+    const m = /^data:([^;,]+)?(?:;base64)?,(.*)$/s.exec(url)
+    if (!m) return null
+    return { buf: Buffer.from(m[2]!, 'base64'), contentType: m[1] ?? 'image/png' }
+  }
+  const resp = await fetchRemoteImage(url)
+  if (!resp || !resp.ok) return null
+  return { buf: Buffer.from(await resp.arrayBuffer()), contentType: resp.headers.get('content-type') ?? '' }
+}
+
 // ── ai:* handlers unique to slides ──────────────────────────────────────
 // Must be registered inside registerSlidesIpc (not registerAiIpc): in shell aggregate mode the
 // generic ai:* channels are registered by docs-main.registerAiIpc, and slides' registerAiIpc is
 // never called; docs does not have these channels, so putting them in the wrong place raises
 // "No handler registered".
 export function registerSlidesOnlyAiIpc(): void {
-  // gsk (Genspark CLI) capabilities: AI image generation / media analysis. Returns an error prompt when not logged in.
+  // Codex CLI capabilities: AI image generation / media analysis. Returns an error prompt when not logged in.
   ipcMain.handle(
     'ai:generate-image',
     async (
@@ -189,18 +217,16 @@ export function registerSlidesOnlyAiIpc(): void {
         imageSize?: string
       },
     ) => {
-      if (!hasGskAuth()) return { error: tm('errGskCli') }
+      if (!hasCodexAuth()) return { error: tm('errCodexCli') }
       try {
-        const r = await gskGenerateImage({
+        const r = await codexGenerateImage({
           prompt: String(op.prompt),
-          model: op.model ? String(op.model) : undefined,
           referenceImageUrls: Array.isArray(op.referenceImageUrls)
             ? op.referenceImageUrls.map(String)
             : undefined,
           aspectRatio: op.aspectRatio ? String(op.aspectRatio) : undefined,
-          imageSize: op.imageSize ? String(op.imageSize) : undefined,
         })
-        return { url: r.url }
+        return { url: localImageToDataUrl(r.path) }
       } catch (err) {
         return { error: err instanceof Error ? err.message : String(err) }
       }
@@ -210,9 +236,9 @@ export function registerSlidesOnlyAiIpc(): void {
   ipcMain.handle(
     'ai:analyze-media',
     async (_event, op: { mediaUrls: string[]; requirements: string }) => {
-      if (!hasGskAuth()) return { error: tm('errGskCli') }
+      if (!hasCodexAuth()) return { error: tm('errCodexCli') }
       try {
-        const text = await gskAnalyzeMedia({
+        const text = await codexAnalyzeMedia({
           mediaUrls: (op.mediaUrls ?? []).map(String),
           requirements: String(op.requirements ?? ''),
         })
@@ -244,13 +270,13 @@ export function registerSlidesOnlyAiIpc(): void {
       if (!slide) return null
       try {
         // the URL originates from AI tool calls (prompt-injectable via image
-        // search results), so refuse non-http schemes and private/link-local
-        // targets; redirects are followed manually so every hop is validated.
-        // fetchRemoteImage adds CDN-friendly headers and transient-error retries.
-        const resp = await fetchRemoteImage(String(op.url))
-        if (!resp || !resp.ok) return null
-        const buf = Buffer.from(await resp.arrayBuffer())
-        const ct = resp.headers.get('content-type') ?? ''
+        // search results), so http(s) URLs go through fetchRemoteImage's SSRF
+        // guard (refuses non-http schemes and private/link-local targets,
+        // retries transient failures); a data: URL (Codex-generated images)
+        // decodes inline with no network fetch at all.
+        const resolved = await resolveImageBytes(String(op.url))
+        if (!resolved) return null
+        const { buf, contentType: ct } = resolved
         const ext = ct.includes('png') ? 'png' : ct.includes('gif') ? 'gif' : 'jpg'
         const baseWidthPx = session.opened.deck.size.cx / EMU_PER_PX_96
         const scale = op.fitWidthPx / baseWidthPx
@@ -289,10 +315,9 @@ export function registerSlidesOnlyAiIpc(): void {
       const slide = session.opened.deck.slides[op.slideIndex]
       if (!slide) return null
       try {
-        const resp = await fetchRemoteImage(String(op.url))
-        if (!resp || !resp.ok) return null
-        const buf = Buffer.from(await resp.arrayBuffer())
-        const ct = resp.headers.get('content-type') ?? ''
+        const resolved = await resolveImageBytes(String(op.url))
+        if (!resolved) return null
+        const { buf, contentType: ct } = resolved
         const ext = ct.includes('png') ? 'png' : ct.includes('gif') ? 'gif' : 'jpg'
         pushHistory(session)
         const ok = replacePictureBytes(
