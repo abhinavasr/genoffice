@@ -424,12 +424,12 @@ export function AiPanel({
         onPointerDown={startResize}
         role="separator"
         aria-orientation="vertical"
-        aria-label="Genspark"
+        aria-label="AI Assistant"
       />
       <header className="ai-panel-header">
         <span className="ai-panel-title">
-          <GensparkMark size={22} />
-          Genspark
+          <AiSparkMark size={22} />
+          AI Assistant
         </span>
         <div className="ai-panel-header-actions">
           {chat.length > 0 && (
@@ -820,8 +820,8 @@ function IconClock(): ReactElement {
   )
 }
 
-/** Genspark brand mark, inline for crisp device-resolution rendering */
-export function GensparkMark({ size = 18 }: { size?: number }): React.JSX.Element {
+/** AI panel brand mark, inline for crisp device-resolution rendering */
+export function AiSparkMark({ size = 18 }: { size?: number }): React.JSX.Element {
   return (
     <svg
       width={size}

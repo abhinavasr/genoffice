@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs'
-import { readFile, rename, writeFile } from 'node:fs/promises'
-import { dirname, join } from 'node:path'
+import { readFile, rename, rm, writeFile } from 'node:fs/promises'
+import { dirname, extname, join } from 'node:path'
 import { BrowserWindow, WebContentsView, app, dialog, ipcMain, shell } from 'electron'
 import type { WebContents } from 'electron'
 import {
@@ -12,7 +12,7 @@ import {
   showSaveDialogWithMemory,
 } from '@genoffice/electron-utils'
 import { createI18n, getUiLang } from '@genoffice/i18n'
-import { gskGenerateImage, hasGskAuth } from '@genoffice/ai-search'
+import { codexGenerateImage, hasCodexAuth } from '@genoffice/ai-search'
 import { PDF_CHANNELS } from '../shared/ipc'
 import type {
   ExportImagesRequest,
@@ -28,6 +28,14 @@ import type {
   ValidateTextEditsRequest,
 } from '../shared/ipc'
 import { extractPagesBytes, insertPdfBytes, savePdfToPath } from './save-pdf'
+
+const IMAGE_MIME_BY_EXT: Record<string, string> = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+}
 
 const tDlg = createI18n({
   zh: {
@@ -571,18 +579,21 @@ function registerPdfIpc(): void {
   ipcMain.handle(
     PDF_CHANNELS.generateImage,
     async (_e, op: { prompt?: unknown; aspectRatio?: unknown }) => {
-      if (!hasGskAuth())
+      if (!hasCodexAuth())
         return {
-          error: 'Genspark account is not logged in on this machine; ask the user to log in first',
+          error: 'Codex CLI is not signed in on this machine; ask the user to run codex login first',
         }
       const prompt = String(op?.prompt ?? '').trim()
       if (!prompt) return { error: 'prompt must not be empty' }
       try {
-        const r = await gskGenerateImage({
+        const r = await codexGenerateImage({
           prompt,
           aspectRatio: op?.aspectRatio ? String(op.aspectRatio) : undefined,
         })
-        return { url: r.url }
+        const mime = IMAGE_MIME_BY_EXT[extname(r.path).toLowerCase()] ?? 'image/png'
+        const base64 = (await readFile(r.path)).toString('base64')
+        await rm(dirname(r.path), { recursive: true, force: true }).catch(() => {})
+        return { url: `data:${mime};base64,${base64}` }
       } catch (err) {
         return { error: err instanceof Error ? err.message : String(err) }
       }

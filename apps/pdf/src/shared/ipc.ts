@@ -389,7 +389,7 @@ export interface PdfApi {
   imageSearch(query: string, maxResults?: number): Promise<ImageSearchResponse>
   /** Download an image URL in the main process (SSRF-guarded, avoids CORS); null on failure */
   fetchImage(url: string): Promise<{ base64: string; mime: string } | null>
-  /** AI image generation via Genspark (gsk); returns a downloadable URL or an error message */
+  /** AI image generation via the Codex CLI; returns a downloadable image URL or an error message */
   generateImage(op: { prompt: string; aspectRatio?: string }): Promise<{
     url?: string
     error?: string

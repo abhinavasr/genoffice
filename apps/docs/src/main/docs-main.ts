@@ -2552,13 +2552,20 @@ export function registerAiIpc(): void {
   // download image from URL → base64+mime (download in the main process avoids CORS; the renderer builds the image node and measures size itself)
   ipcMain.handle(
     'ai:fetch-image',
-    async (_event, url: string): Promise<{ base64: string; mime: string } | null> => {
+    async (_event, rawUrl: string): Promise<{ base64: string; mime: string } | null> => {
+      const url = String(rawUrl)
+      // A Codex-generated image (generate_image) arrives as an inline data: URL — no
+      // network fetch, so no SSRF surface; decode it directly.
+      if (url.startsWith('data:')) {
+        const m = /^data:([^;,]+)?(?:;base64)?,(.*)$/s.exec(url)
+        return m ? { base64: m[2]!, mime: m[1] ?? 'image/png' } : null
+      }
       try {
         // the URL originates from AI tool calls (prompt-injectable via web search
         // results), so refuse non-http schemes and private/link-local targets;
         // redirects are followed manually so every hop is validated too.
         // fetchRemoteImage adds CDN-friendly headers and transient-error retries.
-        const resp = await fetchRemoteImage(String(url))
+        const resp = await fetchRemoteImage(url)
         if (!resp || !resp.ok) return null
         const buf = Buffer.from(await resp.arrayBuffer())
         const ct = resp.headers.get('content-type') ?? ''
