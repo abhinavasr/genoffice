@@ -1,7 +1,7 @@
-/// Downloader for AI-inserted images. Image-search results largely live on the
-/// Genspark CDN (sspark.genspark.ai), which intermittently refuses bare
-/// requests; browser-like headers plus a Referer on genspark hosts and a couple
-/// of retries turn most of those transient failures into successful inserts.
+/// Downloader for AI-inserted images. Some image CDNs intermittently refuse
+/// bare requests; browser-like headers (plus a Referer for hosts known to
+/// require one) and a couple of retries turn most transient failures into
+/// successful inserts.
 
 import { fetchWithSsrfGuard, type FetchWithSsrfGuardOptions } from './safe-remote-url'
 
@@ -28,9 +28,9 @@ export function remoteImageHeaders(rawUrl: string): Record<string, string> {
 
 /**
  * fetchWithSsrfGuard specialized for image downloads: browser-like headers
- * (with a Referer for the Genspark CDN) and retries on transient failures
- * (network errors, 403/408/429, 5xx). An SSRF-blocked URL still returns null
- * immediately — that outcome never changes on retry.
+ * (with a Referer for CDNs that require one) and retries on transient
+ * failures (network errors, 403/408/429, 5xx). An SSRF-blocked URL still
+ * returns null immediately — that outcome never changes on retry.
  */
 export async function fetchRemoteImage(
   rawUrl: string,

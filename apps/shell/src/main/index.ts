@@ -46,23 +46,15 @@ import {
   windowMenuTemplate,
 } from '@genoffice/electron-utils'
 import { readAppSettings, writeAppSetting } from './app-settings'
-import {
-  clearCloudProjectsStore,
-  cloudProjectExternalUrl,
-  readCloudProjectsStore,
-  syncCloudProjects,
-} from './cloud-projects'
 import { ProjectStore } from '@genoffice/project-store'
 import {
-  ensureGenofficeLogin,
-  genofficeLogout,
-  gskConvertPdfToDocx,
-  gskLoginInfo,
-  hasGskAuth,
-  loadGenofficeAuth,
-  resolveGskEntry,
-  setGskProxyUrl,
-  startGenofficeLogin,
+  codexAccountEmail,
+  codexConvertPdfToDocx,
+  codexLogout,
+  ensureCodexLogin,
+  hasCodexAuth,
+  setAiCliProxyUrl,
+  startCodexLogin,
 } from '@genoffice/ai-search'
 
 import {
@@ -324,16 +316,15 @@ const tMain = createI18n({
     menuHelp: '帮助',
     thirdPartyNotices: '第三方软件声明',
     menuExportDocx: '导出为 Word…',
-    pdfDocxLoginMsg: '导出为 Word 需要登录 Genspark 账号。',
+    pdfDocxLoginMsg: '导出为 Word 需要登录 Codex。',
     pdfDocxLoginDetail: '点击“登录”将打开浏览器完成授权，完成后请重新点击导出。',
     pdfDocxBtnLogin: '登录',
-    pdfDocxConfirmMsg: '将此 PDF 上传到 Genspark 云端转换为 Word？',
-    pdfDocxConfirmDetail: '本次转换将消耗 5 credits，文件将上传至云端处理。',
-    pdfDocxConfirmBalance: '当前余额 {balance} credits。',
+    pdfDocxConfirmMsg: '使用 Codex 将此 PDF 转换为 Word？',
+    pdfDocxConfirmDetail: '转换在本机通过 Codex 完成，可能需要一些时间。',
     pdfDocxBtnConvert: '继续',
     btnCancel: '取消',
     pdfDocxFailedMsg: '导出为 Word 失败',
-    pdfDocxNoCliMsg: '无法登录 Genspark：缺少必需组件（gsk），请重新安装应用。',
+    pdfDocxNoCliMsg: '无法登录 Codex：缺少必需组件（codex CLI），请先安装 Codex CLI。',
     pdfDocxBusyMsg: '正在转换中，请等待当前导出完成。',
   },
   en: {
@@ -375,19 +366,15 @@ const tMain = createI18n({
     menuHelp: 'Help',
     thirdPartyNotices: 'Third-Party Notices',
     menuExportDocx: 'Export as Word…',
-    pdfDocxLoginMsg: 'Exporting as Word requires signing in to Genspark.',
-    pdfDocxLoginDetail:
-      'Clicking “Sign In” opens your browser to authorize; once done, click Export again.',
+    pdfDocxLoginMsg: 'Exporting as Word requires signing in to Codex.',
+    pdfDocxLoginDetail: 'Clicking "Sign In" opens the browser to authorize; export again once it\'s done.',
     pdfDocxBtnLogin: 'Sign In',
-    pdfDocxConfirmMsg: 'Upload this PDF to Genspark cloud and convert it to Word?',
-    pdfDocxConfirmDetail:
-      'The conversion costs 5 credits. The file will be uploaded for cloud processing.',
-    pdfDocxConfirmBalance: 'Current balance: {balance} credits.',
+    pdfDocxConfirmMsg: 'Convert this PDF to Word using Codex?',
+    pdfDocxConfirmDetail: 'The conversion runs locally via Codex and may take a moment.',
     pdfDocxBtnConvert: 'Continue',
     btnCancel: 'Cancel',
     pdfDocxFailedMsg: 'Export as Word failed',
-    pdfDocxNoCliMsg:
-      'Cannot sign in to Genspark: a required component (gsk) is missing. Please reinstall the app.',
+    pdfDocxNoCliMsg: 'Cannot sign in to Codex: the Codex CLI is missing. Please install it first.',
     pdfDocxBusyMsg: 'A Word export is already in progress. Please wait for it to finish.',
   },
   ja: {
@@ -429,19 +416,15 @@ const tMain = createI18n({
     menuHelp: 'ヘルプ',
     thirdPartyNotices: 'サードパーティソフトウェアに関する通知',
     menuExportDocx: 'Word として書き出す…',
-    pdfDocxLoginMsg: 'Word への書き出しには Genspark へのログインが必要です。',
-    pdfDocxLoginDetail:
-      '「ログイン」をクリックするとブラウザで認証します。完了後、もう一度書き出しを実行してください。',
+    pdfDocxLoginMsg: 'Word への書き出しには Codex へのログインが必要です。',
+    pdfDocxLoginDetail: '「ログイン」をクリックするとブラウザが開き認証されます。完了後、再度書き出しを行ってください。',
     pdfDocxBtnLogin: 'ログイン',
-    pdfDocxConfirmMsg: 'この PDF を Genspark クラウドにアップロードして Word に変換しますか？',
-    pdfDocxConfirmDetail:
-      '変換には 5 クレジットを消費します。ファイルはクラウドにアップロードされ処理されます。',
-    pdfDocxConfirmBalance: '現在の残高：{balance} クレジット。',
+    pdfDocxConfirmMsg: 'Codex を使ってこの PDF を Word に変換しますか？',
+    pdfDocxConfirmDetail: '変換は Codex によりローカルで行われ、多少時間がかかる場合があります。',
     pdfDocxBtnConvert: '続行',
     btnCancel: 'キャンセル',
     pdfDocxFailedMsg: 'Word への書き出しに失敗しました',
-    pdfDocxNoCliMsg:
-      'Genspark にサインインできません：必要なコンポーネント（gsk）が見つかりません。アプリを再インストールしてください。',
+    pdfDocxNoCliMsg: 'Codex にサインインできません：Codex CLI が見つかりません。先にインストールしてください。',
     pdfDocxBusyMsg: 'Word への書き出しが進行中です。完了までお待ちください。',
   },
   ko: {
@@ -483,19 +466,15 @@ const tMain = createI18n({
     menuHelp: '도움말',
     thirdPartyNotices: '타사 소프트웨어 고지',
     menuExportDocx: 'Word로 내보내기…',
-    pdfDocxLoginMsg: 'Word로 내보내려면 Genspark 로그인이 필요합니다.',
-    pdfDocxLoginDetail:
-      '“로그인”을 클릭하면 브라우저에서 인증합니다. 완료 후 내보내기를 다시 클릭하세요.',
+    pdfDocxLoginMsg: 'Word로 내보내려면 Codex 로그인이 필요합니다.',
+    pdfDocxLoginDetail: '"로그인"을 클릭하면 브라우저에서 인증이 진행됩니다. 완료 후 다시 내보내기를 클릭하세요.',
     pdfDocxBtnLogin: '로그인',
-    pdfDocxConfirmMsg: '이 PDF를 Genspark 클라우드에 업로드하여 Word로 변환할까요?',
-    pdfDocxConfirmDetail:
-      '변환에는 5 크레딧이 소모됩니다. 파일은 클라우드로 업로드되어 처리됩니다.',
-    pdfDocxConfirmBalance: '현재 잔액: {balance} 크레딧.',
+    pdfDocxConfirmMsg: 'Codex를 사용해 이 PDF를 Word로 변환할까요?',
+    pdfDocxConfirmDetail: '변환은 Codex를 통해 로컬에서 수행되며 다소 시간이 걸릴 수 있습니다.',
     pdfDocxBtnConvert: '계속',
     btnCancel: '취소',
     pdfDocxFailedMsg: 'Word로 내보내기 실패',
-    pdfDocxNoCliMsg:
-      'Genspark에 로그인할 수 없습니다. 필수 구성 요소(gsk)가 없습니다. 앱을 다시 설치해 주세요.',
+    pdfDocxNoCliMsg: 'Codex에 로그인할 수 없습니다: Codex CLI가 없습니다. 먼저 설치해 주세요.',
     pdfDocxBusyMsg: 'Word 내보내기가 이미 진행 중입니다. 완료될 때까지 기다려 주세요.',
   },
   fr: {
@@ -537,19 +516,15 @@ const tMain = createI18n({
     menuHelp: 'Aide',
     thirdPartyNotices: 'Mentions relatives aux logiciels tiers',
     menuExportDocx: 'Exporter en Word…',
-    pdfDocxLoginMsg: "L'export en Word nécessite une connexion à Genspark.",
-    pdfDocxLoginDetail:
-      "Cliquez sur « Se connecter » pour autoriser dans le navigateur, puis relancez l'export.",
+    pdfDocxLoginMsg: 'L\'export en Word nécessite une connexion à Codex.',
+    pdfDocxLoginDetail: 'Cliquer sur « Se connecter » ouvre le navigateur pour autoriser l\'accès ; relancez l\'export une fois terminé.',
     pdfDocxBtnLogin: 'Se connecter',
-    pdfDocxConfirmMsg: 'Téléverser ce PDF vers le cloud Genspark pour le convertir en Word ?',
-    pdfDocxConfirmDetail:
-      'La conversion coûte 5 crédits. Le fichier sera téléversé pour traitement dans le cloud.',
-    pdfDocxConfirmBalance: 'Solde actuel : {balance} crédits.',
+    pdfDocxConfirmMsg: 'Convertir ce PDF en Word avec Codex ?',
+    pdfDocxConfirmDetail: 'La conversion s\'exécute localement via Codex et peut prendre un moment.',
     pdfDocxBtnConvert: 'Continuer',
     btnCancel: 'Annuler',
     pdfDocxFailedMsg: "Échec de l'export en Word",
-    pdfDocxNoCliMsg:
-      "Connexion à Genspark impossible : un composant requis (gsk) est manquant. Veuillez réinstaller l'application.",
+    pdfDocxNoCliMsg: 'Connexion à Codex impossible : le CLI Codex est manquant. Veuillez l\'installer d\'abord.',
     pdfDocxBusyMsg: "Un export en Word est déjà en cours. Veuillez attendre qu'il se termine.",
   },
   de: {
@@ -591,19 +566,15 @@ const tMain = createI18n({
     menuHelp: 'Hilfe',
     thirdPartyNotices: 'Hinweise zu Drittanbietersoftware',
     menuExportDocx: 'Als Word exportieren…',
-    pdfDocxLoginMsg: 'Für den Word-Export ist eine Anmeldung bei Genspark erforderlich.',
-    pdfDocxLoginDetail:
-      'Klicken Sie auf „Anmelden“, um die Autorisierung im Browser abzuschließen, und starten Sie den Export danach erneut.',
+    pdfDocxLoginMsg: 'Für den Word-Export ist eine Anmeldung bei Codex erforderlich.',
+    pdfDocxLoginDetail: 'Ein Klick auf „Anmelden“ öffnet den Browser zur Autorisierung; starten Sie den Export danach erneut.',
     pdfDocxBtnLogin: 'Anmelden',
-    pdfDocxConfirmMsg: 'Dieses PDF in die Genspark-Cloud hochladen und in Word konvertieren?',
-    pdfDocxConfirmDetail:
-      'Die Konvertierung kostet 5 Credits. Die Datei wird zur Verarbeitung in die Cloud hochgeladen.',
-    pdfDocxConfirmBalance: 'Aktuelles Guthaben: {balance} Credits.',
+    pdfDocxConfirmMsg: 'Dieses PDF mit Codex in Word konvertieren?',
+    pdfDocxConfirmDetail: 'Die Konvertierung erfolgt lokal über Codex und kann einen Moment dauern.',
     pdfDocxBtnConvert: 'Fortfahren',
     btnCancel: 'Abbrechen',
     pdfDocxFailedMsg: 'Word-Export fehlgeschlagen',
-    pdfDocxNoCliMsg:
-      'Anmeldung bei Genspark nicht möglich: Eine erforderliche Komponente (gsk) fehlt. Bitte installieren Sie die App neu.',
+    pdfDocxNoCliMsg: 'Anmeldung bei Codex nicht möglich: Die Codex-CLI fehlt. Bitte zuerst installieren.',
     pdfDocxBusyMsg: 'Ein Word-Export läuft bereits. Bitte warten Sie, bis er abgeschlossen ist.',
   },
   es: {
@@ -645,19 +616,15 @@ const tMain = createI18n({
     menuHelp: 'Ayuda',
     thirdPartyNotices: 'Avisos de software de terceros',
     menuExportDocx: 'Exportar como Word…',
-    pdfDocxLoginMsg: 'Para exportar como Word es necesario iniciar sesión en Genspark.',
-    pdfDocxLoginDetail:
-      'Al hacer clic en «Iniciar sesión» se abrirá el navegador para autorizar; después, vuelve a hacer clic en Exportar.',
+    pdfDocxLoginMsg: 'Para exportar como Word es necesario iniciar sesión en Codex.',
+    pdfDocxLoginDetail: 'Al hacer clic en «Iniciar sesión» se abrirá el navegador para autorizar; vuelve a exportar cuando termines.',
     pdfDocxBtnLogin: 'Iniciar sesión',
-    pdfDocxConfirmMsg: '¿Subir este PDF a la nube de Genspark para convertirlo a Word?',
-    pdfDocxConfirmDetail:
-      'La conversión cuesta 5 créditos. El archivo se subirá para procesarse en la nube.',
-    pdfDocxConfirmBalance: 'Saldo actual: {balance} créditos.',
+    pdfDocxConfirmMsg: '¿Convertir este PDF a Word usando Codex?',
+    pdfDocxConfirmDetail: 'La conversión se ejecuta localmente mediante Codex y puede tardar un momento.',
     pdfDocxBtnConvert: 'Continuar',
     btnCancel: 'Cancelar',
     pdfDocxFailedMsg: 'Error al exportar como Word',
-    pdfDocxNoCliMsg:
-      'No se puede iniciar sesión en Genspark: falta un componente necesario (gsk). Reinstale la aplicación.',
+    pdfDocxNoCliMsg: 'No se puede iniciar sesión en Codex: falta el CLI de Codex. Instálalo primero.',
     pdfDocxBusyMsg: 'Ya hay una exportación a Word en curso. Espera a que termine.',
   },
   th: {
@@ -699,18 +666,15 @@ const tMain = createI18n({
     menuHelp: 'วิธีใช้',
     thirdPartyNotices: 'ประกาศเกี่ยวกับซอฟต์แวร์ของบุคคลที่สาม',
     menuExportDocx: 'ส่งออกเป็น Word…',
-    pdfDocxLoginMsg: 'การส่งออกเป็น Word ต้องเข้าสู่ระบบ Genspark',
-    pdfDocxLoginDetail:
-      'คลิก “เข้าสู่ระบบ” เพื่อเปิดเบราว์เซอร์ยืนยันตัวตน เสร็จแล้วให้คลิกส่งออกอีกครั้ง',
+    pdfDocxLoginMsg: 'การส่งออกเป็น Word ต้องเข้าสู่ระบบ Codex',
+    pdfDocxLoginDetail: 'การคลิก “ลงชื่อเข้าใช้” จะเปิดเบราว์เซอร์เพื่อทำการอนุญาต จากนั้นโปรดส่งออกอีกครั้ง',
     pdfDocxBtnLogin: 'เข้าสู่ระบบ',
-    pdfDocxConfirmMsg: 'อัปโหลด PDF นี้ไปยังคลาวด์ Genspark เพื่อแปลงเป็น Word หรือไม่?',
-    pdfDocxConfirmDetail: 'การแปลงใช้ 5 เครดิต ไฟล์จะถูกอัปโหลดเพื่อประมวลผลบนคลาวด์',
-    pdfDocxConfirmBalance: 'ยอดคงเหลือปัจจุบัน: {balance} เครดิต',
+    pdfDocxConfirmMsg: 'แปลง PDF นี้เป็น Word โดยใช้ Codex หรือไม่?',
+    pdfDocxConfirmDetail: 'การแปลงจะทำงานในเครื่องผ่าน Codex และอาจใช้เวลาสักครู่',
     pdfDocxBtnConvert: 'ดำเนินการต่อ',
     btnCancel: 'ยกเลิก',
     pdfDocxFailedMsg: 'ส่งออกเป็น Word ไม่สำเร็จ',
-    pdfDocxNoCliMsg:
-      'ไม่สามารถลงชื่อเข้าใช้ Genspark ได้: ไม่พบคอมโพเนนต์ที่จำเป็น (gsk) โปรดติดตั้งแอปใหม่',
+    pdfDocxNoCliMsg: 'ไม่สามารถลงชื่อเข้าใช้ Codex ได้: ไม่พบ Codex CLI โปรดติดตั้งก่อน',
     pdfDocxBusyMsg: 'กำลังส่งออกเป็น Word อยู่ โปรดรอให้เสร็จสิ้นก่อน',
   },
   id: {
@@ -752,19 +716,15 @@ const tMain = createI18n({
     menuHelp: 'Bantuan',
     thirdPartyNotices: 'Pemberitahuan Perangkat Lunak Pihak Ketiga',
     menuExportDocx: 'Ekspor sebagai Word…',
-    pdfDocxLoginMsg: 'Ekspor sebagai Word memerlukan login ke Genspark.',
-    pdfDocxLoginDetail:
-      'Klik “Masuk” untuk membuka browser dan memberi otorisasi; setelah selesai, klik Ekspor lagi.',
+    pdfDocxLoginMsg: 'Ekspor sebagai Word memerlukan login ke Codex.',
+    pdfDocxLoginDetail: 'Mengklik "Masuk" akan membuka browser untuk otorisasi; ekspor lagi setelah selesai.',
     pdfDocxBtnLogin: 'Masuk',
-    pdfDocxConfirmMsg: 'Unggah PDF ini ke cloud Genspark untuk dikonversi ke Word?',
-    pdfDocxConfirmDetail:
-      'Konversi ini menggunakan 5 kredit. File akan diunggah untuk diproses di cloud.',
-    pdfDocxConfirmBalance: 'Saldo saat ini: {balance} kredit.',
+    pdfDocxConfirmMsg: 'Konversi PDF ini ke Word menggunakan Codex?',
+    pdfDocxConfirmDetail: 'Konversi berjalan secara lokal melalui Codex dan mungkin memerlukan waktu.',
     pdfDocxBtnConvert: 'Lanjutkan',
     btnCancel: 'Batal',
     pdfDocxFailedMsg: 'Gagal mengekspor sebagai Word',
-    pdfDocxNoCliMsg:
-      'Tidak dapat masuk ke Genspark: komponen yang diperlukan (gsk) tidak ditemukan. Silakan instal ulang aplikasi.',
+    pdfDocxNoCliMsg: 'Tidak dapat masuk ke Codex: Codex CLI tidak ditemukan. Silakan instal terlebih dahulu.',
     pdfDocxBusyMsg: 'Ekspor ke Word sedang berlangsung. Harap tunggu hingga selesai.',
   },
   ru: {
@@ -806,19 +766,15 @@ const tMain = createI18n({
     menuHelp: 'Справка',
     thirdPartyNotices: 'Уведомления о стороннем ПО',
     menuExportDocx: 'Экспортировать в Word…',
-    pdfDocxLoginMsg: 'Для экспорта в Word требуется вход в Genspark.',
-    pdfDocxLoginDetail:
-      'Нажмите «Войти», чтобы авторизоваться в браузере, затем снова запустите экспорт.',
+    pdfDocxLoginMsg: 'Для экспорта в Word требуется вход в Codex.',
+    pdfDocxLoginDetail: 'Нажатие «Войти» откроет браузер для авторизации; повторите экспорт после завершения.',
     pdfDocxBtnLogin: 'Войти',
-    pdfDocxConfirmMsg: 'Загрузить этот PDF в облако Genspark и конвертировать в Word?',
-    pdfDocxConfirmDetail:
-      'Конвертация стоит 5 кредитов. Файл будет загружен для обработки в облаке.',
-    pdfDocxConfirmBalance: 'Текущий баланс: {balance} кредитов.',
+    pdfDocxConfirmMsg: 'Преобразовать этот PDF в Word с помощью Codex?',
+    pdfDocxConfirmDetail: 'Преобразование выполняется локально через Codex и может занять некоторое время.',
     pdfDocxBtnConvert: 'Продолжить',
     btnCancel: 'Отмена',
     pdfDocxFailedMsg: 'Не удалось экспортировать в Word',
-    pdfDocxNoCliMsg:
-      'Не удаётся войти в Genspark: отсутствует необходимый компонент (gsk). Переустановите приложение.',
+    pdfDocxNoCliMsg: 'Не удаётся войти в Codex: отсутствует Codex CLI. Установите его сначала.',
     pdfDocxBusyMsg: 'Экспорт в Word уже выполняется. Дождитесь его завершения.',
   },
   ar: {
@@ -860,18 +816,15 @@ const tMain = createI18n({
     menuHelp: 'تعليمات',
     thirdPartyNotices: 'إشعارات برامج الجهات الخارجية',
     menuExportDocx: 'تصدير كملف Word…',
-    pdfDocxLoginMsg: 'يتطلب التصدير كملف Word تسجيل الدخول إلى Genspark.',
-    pdfDocxLoginDetail:
-      'انقر على «تسجيل الدخول» لفتح المتصفح وإتمام التفويض، ثم انقر على التصدير مرة أخرى.',
+    pdfDocxLoginMsg: 'يتطلب التصدير كملف Word تسجيل الدخول إلى Codex.',
+    pdfDocxLoginDetail: 'سيؤدي النقر على «تسجيل الدخول» إلى فتح المتصفح للتفويض؛ أعد التصدير بعد الانتهاء.',
     pdfDocxBtnLogin: 'تسجيل الدخول',
-    pdfDocxConfirmMsg: 'رفع هذا الـ PDF إلى سحابة Genspark وتحويله إلى Word؟',
-    pdfDocxConfirmDetail: 'يكلف التحويل 5 أرصدة. سيتم رفع الملف للمعالجة في السحابة.',
-    pdfDocxConfirmBalance: 'الرصيد الحالي: {balance} من الأرصدة.',
+    pdfDocxConfirmMsg: 'هل تريد تحويل ملف PDF هذا إلى Word باستخدام Codex؟',
+    pdfDocxConfirmDetail: 'يتم التحويل محليًا عبر Codex وقد يستغرق بعض الوقت.',
     pdfDocxBtnConvert: 'متابعة',
     btnCancel: 'إلغاء',
     pdfDocxFailedMsg: 'فشل التصدير كملف Word',
-    pdfDocxNoCliMsg:
-      'تعذّر تسجيل الدخول إلى Genspark: المكوّن المطلوب (gsk) مفقود. يُرجى إعادة تثبيت التطبيق.',
+    pdfDocxNoCliMsg: 'تعذّر تسجيل الدخول إلى Codex: أداة Codex CLI مفقودة. يرجى تثبيتها أولًا.',
     pdfDocxBusyMsg: 'يجري حاليًا تصدير إلى Word. يُرجى الانتظار حتى يكتمل.',
   },
   pt: {
@@ -913,19 +866,15 @@ const tMain = createI18n({
     menuHelp: 'Ajuda',
     thirdPartyNotices: 'Avisos de software de terceiros',
     menuExportDocx: 'Exportar como Word…',
-    pdfDocxLoginMsg: 'Exportar como Word requer login no Genspark.',
-    pdfDocxLoginDetail:
-      'Clique em “Entrar” para autorizar no navegador; depois, clique em Exportar novamente.',
+    pdfDocxLoginMsg: 'Exportar como Word requer login no Codex.',
+    pdfDocxLoginDetail: 'Clicar em "Entrar" abre o navegador para autorizar; exporte novamente ao concluir.',
     pdfDocxBtnLogin: 'Entrar',
-    pdfDocxConfirmMsg: 'Enviar este PDF para a nuvem do Genspark e convertê-lo em Word?',
-    pdfDocxConfirmDetail:
-      'A conversão custa 5 créditos. O arquivo será enviado para processamento na nuvem.',
-    pdfDocxConfirmBalance: 'Saldo atual: {balance} créditos.',
+    pdfDocxConfirmMsg: 'Converter este PDF em Word usando o Codex?',
+    pdfDocxConfirmDetail: 'A conversão é executada localmente via Codex e pode levar um momento.',
     pdfDocxBtnConvert: 'Continuar',
     btnCancel: 'Cancelar',
     pdfDocxFailedMsg: 'Falha ao exportar como Word',
-    pdfDocxNoCliMsg:
-      'Não é possível iniciar sessão no Genspark: falta um componente necessário (gsk). Reinstale o aplicativo.',
+    pdfDocxNoCliMsg: 'Não é possível iniciar sessão no Codex: falta o Codex CLI. Instale-o primeiro.',
     pdfDocxBusyMsg: 'Já há uma exportação para Word em andamento. Aguarde a conclusão.',
   },
   it: {
@@ -967,19 +916,15 @@ const tMain = createI18n({
     menuHelp: 'Aiuto',
     thirdPartyNotices: 'Note sul software di terze parti',
     menuExportDocx: 'Esporta come Word…',
-    pdfDocxLoginMsg: 'Per esportare come Word è necessario accedere a Genspark.',
-    pdfDocxLoginDetail:
-      'Fai clic su “Accedi” per autorizzare nel browser; al termine, fai di nuovo clic su Esporta.',
+    pdfDocxLoginMsg: 'Per esportare come Word è necessario accedere a Codex.',
+    pdfDocxLoginDetail: 'Facendo clic su "Accedi" si aprirà il browser per l\'autorizzazione; esporta di nuovo al termine.',
     pdfDocxBtnLogin: 'Accedi',
-    pdfDocxConfirmMsg: 'Caricare questo PDF sul cloud Genspark e convertirlo in Word?',
-    pdfDocxConfirmDetail:
-      "La conversione costa 5 crediti. Il file verrà caricato per l'elaborazione nel cloud.",
-    pdfDocxConfirmBalance: 'Saldo attuale: {balance} crediti.',
+    pdfDocxConfirmMsg: 'Convertire questo PDF in Word usando Codex?',
+    pdfDocxConfirmDetail: 'La conversione viene eseguita localmente tramite Codex e potrebbe richiedere qualche istante.',
     pdfDocxBtnConvert: 'Continua',
     btnCancel: 'Annulla',
     pdfDocxFailedMsg: 'Esportazione in Word non riuscita',
-    pdfDocxNoCliMsg:
-      "Impossibile accedere a Genspark: manca un componente necessario (gsk). Reinstallare l'app.",
+    pdfDocxNoCliMsg: 'Impossibile accedere a Codex: manca la Codex CLI. Installala prima.',
     pdfDocxBusyMsg: "Un'esportazione in Word è già in corso. Attendi il completamento.",
   },
   pl: {
@@ -1021,19 +966,15 @@ const tMain = createI18n({
     menuHelp: 'Pomoc',
     thirdPartyNotices: 'Informacje o oprogramowaniu innych firm',
     menuExportDocx: 'Eksportuj jako Word…',
-    pdfDocxLoginMsg: 'Eksport do formatu Word wymaga zalogowania do Genspark.',
-    pdfDocxLoginDetail:
-      'Kliknij „Zaloguj się”, aby autoryzować w przeglądarce; po zakończeniu kliknij Eksportuj ponownie.',
+    pdfDocxLoginMsg: 'Eksport do formatu Word wymaga zalogowania do Codex.',
+    pdfDocxLoginDetail: 'Kliknięcie „Zaloguj się” otworzy przeglądarkę w celu autoryzacji; wyeksportuj ponownie po zakończeniu.',
     pdfDocxBtnLogin: 'Zaloguj się',
-    pdfDocxConfirmMsg: 'Przesłać ten PDF do chmury Genspark i przekonwertować na Word?',
-    pdfDocxConfirmDetail:
-      'Konwersja kosztuje 5 kredytów. Plik zostanie przesłany do przetworzenia w chmurze.',
-    pdfDocxConfirmBalance: 'Aktualne saldo: {balance} kredytów.',
+    pdfDocxConfirmMsg: 'Przekonwertować ten plik PDF na Word za pomocą Codex?',
+    pdfDocxConfirmDetail: 'Konwersja odbywa się lokalnie za pomocą Codex i może chwilę potrwać.',
     pdfDocxBtnConvert: 'Kontynuuj',
     btnCancel: 'Anuluj',
     pdfDocxFailedMsg: 'Eksport do formatu Word nie powiódł się',
-    pdfDocxNoCliMsg:
-      'Nie można zalogować się do Genspark: brakuje wymaganego komponentu (gsk). Zainstaluj aplikację ponownie.',
+    pdfDocxNoCliMsg: 'Nie można zalogować się do Codex: brakuje Codex CLI. Zainstaluj je najpierw.',
     pdfDocxBusyMsg: 'Eksport do formatu Word już trwa. Poczekaj na jego zakończenie.',
   },
   nl: {
@@ -1075,19 +1016,15 @@ const tMain = createI18n({
     menuHelp: 'Help',
     thirdPartyNotices: 'Kennisgevingen over software van derden',
     menuExportDocx: 'Exporteren als Word…',
-    pdfDocxLoginMsg: 'Exporteren als Word vereist inloggen bij Genspark.',
-    pdfDocxLoginDetail:
-      'Klik op “Inloggen” om in de browser te autoriseren; klik daarna opnieuw op Exporteren.',
+    pdfDocxLoginMsg: 'Exporteren als Word vereist inloggen bij Codex.',
+    pdfDocxLoginDetail: 'Klikken op "Aanmelden" opent de browser voor autorisatie; exporteer opnieuw zodra dit is voltooid.',
     pdfDocxBtnLogin: 'Inloggen',
-    pdfDocxConfirmMsg: 'Deze PDF uploaden naar de Genspark-cloud en converteren naar Word?',
-    pdfDocxConfirmDetail:
-      'De conversie kost 5 credits. Het bestand wordt geüpload voor verwerking in de cloud.',
-    pdfDocxConfirmBalance: 'Huidig saldo: {balance} credits.',
+    pdfDocxConfirmMsg: 'Deze PDF met Codex naar Word converteren?',
+    pdfDocxConfirmDetail: 'De conversie wordt lokaal uitgevoerd via Codex en kan even duren.',
     pdfDocxBtnConvert: 'Doorgaan',
     btnCancel: 'Annuleren',
     pdfDocxFailedMsg: 'Exporteren als Word mislukt',
-    pdfDocxNoCliMsg:
-      'Kan niet inloggen bij Genspark: een vereist onderdeel (gsk) ontbreekt. Installeer de app opnieuw.',
+    pdfDocxNoCliMsg: 'Kan niet inloggen bij Codex: de Codex CLI ontbreekt. Installeer deze eerst.',
     pdfDocxBusyMsg: 'Er is al een Word-export bezig. Wacht tot deze is voltooid.',
   },
   ms: {
@@ -1129,19 +1066,15 @@ const tMain = createI18n({
     menuHelp: 'Bantuan',
     thirdPartyNotices: 'Notis Perisian Pihak Ketiga',
     menuExportDocx: 'Eksport sebagai Word…',
-    pdfDocxLoginMsg: 'Eksport sebagai Word memerlukan log masuk ke Genspark.',
-    pdfDocxLoginDetail:
-      'Klik “Log Masuk” untuk membuka pelayar dan memberi kebenaran; selepas selesai, klik Eksport sekali lagi.',
+    pdfDocxLoginMsg: 'Eksport sebagai Word memerlukan log masuk ke Codex.',
+    pdfDocxLoginDetail: 'Mengklik "Log Masuk" akan membuka pelayar untuk kebenaran; eksport semula selepas selesai.',
     pdfDocxBtnLogin: 'Log Masuk',
-    pdfDocxConfirmMsg: 'Muat naik PDF ini ke awan Genspark untuk ditukar kepada Word?',
-    pdfDocxConfirmDetail:
-      'Penukaran ini menggunakan 5 kredit. Fail akan dimuat naik untuk diproses di awan.',
-    pdfDocxConfirmBalance: 'Baki semasa: {balance} kredit.',
+    pdfDocxConfirmMsg: 'Tukar PDF ini kepada Word menggunakan Codex?',
+    pdfDocxConfirmDetail: 'Penukaran dijalankan secara tempatan melalui Codex dan mungkin mengambil sedikit masa.',
     pdfDocxBtnConvert: 'Teruskan',
     btnCancel: 'Batal',
     pdfDocxFailedMsg: 'Gagal mengeksport sebagai Word',
-    pdfDocxNoCliMsg:
-      'Tidak dapat log masuk ke Genspark: komponen yang diperlukan (gsk) tiada. Sila pasang semula aplikasi.',
+    pdfDocxNoCliMsg: 'Tidak dapat log masuk ke Codex: Codex CLI tiada. Sila pasang dahulu.',
     pdfDocxBusyMsg: 'Eksport ke Word sedang dijalankan. Sila tunggu sehingga selesai.',
   },
   he: {
@@ -1183,16 +1116,15 @@ const tMain = createI18n({
     menuHelp: 'עזרה',
     thirdPartyNotices: 'הודעות על תוכנות צד שלישי',
     menuExportDocx: 'ייצוא כ-Word…',
-    pdfDocxLoginMsg: 'ייצוא כ-Word דורש התחברות ל-Genspark.',
-    pdfDocxLoginDetail: 'לחיצה על ”התחברות” תפתח את הדפדפן לאישור; בסיום, לחצו שוב על ייצוא.',
+    pdfDocxLoginMsg: 'ייצוא כ-Word דורש התחברות ל-Codex.',
+    pdfDocxLoginDetail: 'לחיצה על "התחברות" תפתח את הדפדפן לצורך אישור; ייצא שוב לאחר הסיום.',
     pdfDocxBtnLogin: 'התחברות',
-    pdfDocxConfirmMsg: 'להעלות את ה-PDF לענן של Genspark ולהמיר אותו ל-Word?',
-    pdfDocxConfirmDetail: 'ההמרה עולה 5 קרדיטים. הקובץ יועלה לעיבוד בענן.',
-    pdfDocxConfirmBalance: 'יתרה נוכחית: {balance} קרדיטים.',
+    pdfDocxConfirmMsg: 'להמיר את ה-PDF הזה ל-Word באמצעות Codex?',
+    pdfDocxConfirmDetail: 'ההמרה מתבצעת מקומית דרך Codex ועשויה להימשך זמן מה.',
     pdfDocxBtnConvert: 'המשך',
     btnCancel: 'ביטול',
     pdfDocxFailedMsg: 'הייצוא כ-Word נכשל',
-    pdfDocxNoCliMsg: 'לא ניתן להתחבר ל-Genspark: רכיב נדרש (gsk) חסר. נא להתקין מחדש את האפליקציה.',
+    pdfDocxNoCliMsg: 'לא ניתן להתחבר ל-Codex: חסר Codex CLI. יש להתקין אותו תחילה.',
     pdfDocxBusyMsg: 'ייצוא ל-Word כבר מתבצע. נא להמתין לסיומו.',
   },
   hi: {
@@ -1234,19 +1166,15 @@ const tMain = createI18n({
     menuHelp: 'सहायता',
     thirdPartyNotices: 'तृतीय-पक्ष सॉफ़्टवेयर सूचनाएँ',
     menuExportDocx: 'Word के रूप में निर्यात करें…',
-    pdfDocxLoginMsg: 'Word के रूप में निर्यात करने के लिए Genspark में लॉगिन आवश्यक है।',
-    pdfDocxLoginDetail:
-      '“लॉगिन” पर क्लिक करने से ब्राउज़र में प्राधिकरण खुलेगा; पूरा होने पर फिर से निर्यात पर क्लिक करें।',
+    pdfDocxLoginMsg: 'Word के रूप में निर्यात करने के लिए Codex में लॉगिन आवश्यक है।',
+    pdfDocxLoginDetail: '"साइन इन" पर क्लिक करने से ब्राउज़र में प्राधिकरण खुलेगा; पूरा होने पर फिर से निर्यात करें।',
     pdfDocxBtnLogin: 'लॉगिन',
-    pdfDocxConfirmMsg: 'इस PDF को Genspark क्लाउड पर अपलोड करके Word में बदलें?',
-    pdfDocxConfirmDetail:
-      'रूपांतरण में 5 क्रेडिट लगते हैं। फ़ाइल क्लाउड में प्रोसेसिंग के लिए अपलोड की जाएगी।',
-    pdfDocxConfirmBalance: 'वर्तमान शेष: {balance} क्रेडिट।',
+    pdfDocxConfirmMsg: 'क्या Codex का उपयोग करके इस PDF को Word में बदलें?',
+    pdfDocxConfirmDetail: 'रूपांतरण Codex के माध्यम से स्थानीय रूप से चलता है और इसमें कुछ समय लग सकता है।',
     pdfDocxBtnConvert: 'जारी रखें',
     btnCancel: 'रद्द करें',
     pdfDocxFailedMsg: 'Word के रूप में निर्यात विफल रहा',
-    pdfDocxNoCliMsg:
-      'Genspark में साइन इन नहीं किया जा सकता: आवश्यक घटक (gsk) मौजूद नहीं है। कृपया ऐप को फिर से इंस्टॉल करें।',
+    pdfDocxNoCliMsg: 'Codex में साइन इन नहीं किया जा सकता: Codex CLI मौजूद नहीं है। कृपया पहले इसे इंस्टॉल करें।',
     pdfDocxBusyMsg: 'Word के रूप में निर्यात पहले से चल रहा है। कृपया पूरा होने तक प्रतीक्षा करें।',
   },
   'zh-TW': {
@@ -1288,16 +1216,15 @@ const tMain = createI18n({
     menuHelp: '說明',
     thirdPartyNotices: '第三方軟體聲明',
     menuExportDocx: '匯出為 Word…',
-    pdfDocxLoginMsg: '匯出為 Word 需要登入 Genspark 帳號。',
+    pdfDocxLoginMsg: '匯出為 Word 需要登入 Codex。',
     pdfDocxLoginDetail: '點擊「登入」將開啟瀏覽器完成授權，完成後請重新點擊匯出。',
     pdfDocxBtnLogin: '登入',
-    pdfDocxConfirmMsg: '將此 PDF 上傳到 Genspark 雲端轉換為 Word？',
-    pdfDocxConfirmDetail: '本次轉換將消耗 5 credits，檔案將上傳至雲端處理。',
-    pdfDocxConfirmBalance: '目前餘額 {balance} credits。',
+    pdfDocxConfirmMsg: '使用 Codex 將此 PDF 轉換為 Word？',
+    pdfDocxConfirmDetail: '轉換在本機透過 Codex 完成，可能需要一些時間。',
     pdfDocxBtnConvert: '繼續',
     btnCancel: '取消',
     pdfDocxFailedMsg: '匯出為 Word 失敗',
-    pdfDocxNoCliMsg: '無法登入 Genspark：缺少必要元件（gsk），請重新安裝應用程式。',
+    pdfDocxNoCliMsg: '無法登入 Codex：缺少必要元件（codex CLI），請先安裝 Codex CLI。',
     pdfDocxBusyMsg: '正在轉換中，請等待目前的匯出完成。',
   },
 })
@@ -1707,13 +1634,12 @@ function statEntries(paths: string[]): RecentEntry[] {
 }
 
 function registerHomeIpc(): void {
-  // signed-in means GenOffice's own device-code login; the shared gsk CLI key
-  // is only a silent fallback, deliberately not shown here to nudge users onto our key
+  // signed-in means `codex login` state; fully local (Codex CLI owns its own
+  // credential file), so this never needs a network round trip
   ipcMain.handle(HOME_CHANNELS.accountStatus, async () => {
-    if (!loadGenofficeAuth()) return { loggedIn: false }
-    await proxyBootstrap
-    const info = await gskLoginInfo()
-    return info ? { loggedIn: true, email: info.email } : { loggedIn: true }
+    if (!hasCodexAuth()) return { loggedIn: false }
+    const email = codexAccountEmail()
+    return email ? { loggedIn: true, email } : { loggedIn: true }
   })
 
   // login progress is streamed to the requesting renderer; the auth URL is
@@ -1722,13 +1648,14 @@ function registerHomeIpc(): void {
   ipcMain.handle(HOME_CHANNELS.accountLogin, async (event) => {
     const sender = event.sender
     pendingLoginUrl = ''
+    // codex login may itself need the proxy (env forwarded via setAiCliProxyUrl)
     await proxyBootstrap
     const send = (payload: AccountLoginEvent) => {
       if (!sender.isDestroyed()) sender.send(HOME_CHANNELS.accountLoginEvent, payload)
     }
     // open the browser on the first url event only; later events refresh the rescue URL
     let opened = false
-    const launched = startGenofficeLogin((progress) => {
+    const launched = startCodexLogin((progress) => {
       if (progress.url) {
         pendingLoginUrl = progress.url
         if (!opened) {
@@ -1747,9 +1674,7 @@ function registerHomeIpc(): void {
   })
 
   ipcMain.handle(HOME_CHANNELS.accountLogout, async () => {
-    await genofficeLogout()
-    // the cloud projects cache belongs to the account that just signed out
-    clearCloudProjectsStore(cloudProjectsStorePath())
+    await codexLogout()
   })
 
   ipcMain.handle(HOME_CHANNELS.getAppVersion, (): string => app.getVersion())
@@ -1952,19 +1877,6 @@ function registerHomeIpc(): void {
     shell.openExternal(GENTEAM_URL).catch(() => {
       // no browser handler available; nothing actionable for the user here
     })
-  })
-
-  const cloudProjectsStorePath = () => join(app.getPath('userData'), 'cloud-projects.json')
-
-  ipcMain.handle(HOME_CHANNELS.cloudProjectsCached, () =>
-    readCloudProjectsStore(cloudProjectsStorePath()),
-  )
-
-  ipcMain.handle(HOME_CHANNELS.cloudProjects, () => syncCloudProjects(cloudProjectsStorePath()))
-
-  ipcMain.handle(HOME_CHANNELS.openCloudProject, (_event, projectUrl: unknown) => {
-    const url = cloudProjectExternalUrl(projectUrl)
-    if (url) void shell.openExternal(url)
   })
 }
 
@@ -2305,16 +2217,14 @@ async function savePdfAs(): Promise<void> {
 
 /**
  * In-flight guard: covers the whole flow (dialogs included, conversion takes
- * ~10s+) so re-triggering from the menu can never start a second paid conversion
+ * ~10s+) so re-triggering from the menu can never start a second conversion
  */
 let exportingPdfDocx = false
 
 /**
- * Export as Word for pdf tabs: flush pending edits, confirm the 5-credit cost,
- * pick the destination, then upload + cloud-convert via gsk file_convert. Not
- * logged in → offer browser login and let the user re-trigger the export
- * afterwards. The destination is picked before converting so cancelling the
- * save dialog never wastes a paid conversion.
+ * Export as Word for pdf tabs: flush pending edits, confirm the conversion,
+ * pick the destination, then convert locally via the Codex CLI. Not signed
+ * in → offer browser login and let the user re-trigger the export afterwards.
  */
 async function exportPdfAsDocx(): Promise<void> {
   const tab = tabManager?.activePdfTab()
@@ -2331,17 +2241,7 @@ async function exportPdfAsDocx(): Promise<void> {
   exportingPdfDocx = true
   try {
     if (!(await flushPdfSave(tab.webContents))) return
-    if (!hasGskAuth()) {
-      // hasGskAuth() is also false when the gsk CLI itself cannot be resolved
-      // (broken install); Sign In could not launch in that case, so surface
-      // the real problem instead of a login dialog that cannot succeed.
-      if (!resolveGskEntry()) {
-        void dialog.showMessageBox(shellWindow, {
-          type: 'error',
-          message: tm('pdfDocxNoCliMsg'),
-        })
-        return
-      }
+    if (!hasCodexAuth()) {
       const { response } = await dialog.showMessageBox(shellWindow, {
         type: 'info',
         message: tm('pdfDocxLoginMsg'),
@@ -2351,18 +2251,13 @@ async function exportPdfAsDocx(): Promise<void> {
         cancelId: 1,
         noLink: true,
       })
-      if (response === 0) ensureGenofficeLogin((url) => void shell.openExternal(url))
+      if (response === 0) ensureCodexLogin((url) => void shell.openExternal(url))
       return
     }
-    const balance = (await gskLoginInfo())?.creditBalance
-    const balanceLine =
-      balance === undefined
-        ? ''
-        : ` ${tm('pdfDocxConfirmBalance', { balance: Math.floor(balance).toLocaleString('en-US') })}`
     const confirm = await dialog.showMessageBox(shellWindow, {
       type: 'question',
       message: tm('pdfDocxConfirmMsg'),
-      detail: `${tm('pdfDocxConfirmDetail')}${balanceLine}`,
+      detail: tm('pdfDocxConfirmDetail'),
       buttons: [tm('pdfDocxBtnConvert'), tm('btnCancel')],
       defaultId: 0,
       cancelId: 1,
@@ -2377,7 +2272,6 @@ async function exportPdfAsDocx(): Promise<void> {
     // If the destination is already open in a docs tab, close it first (its
     // normal unsaved-changes guard applies) so the converted file opens fresh
     // instead of leaving a stale tab whose next save would clobber the result.
-    // Cancelling the close aborts the export before any credits are spent.
     const staleTabId = tabManager?.findDocsTabByPath(picked.filePath)
     if (staleTabId) {
       await tabManager?.closeTab(staleTabId)
@@ -2388,7 +2282,7 @@ async function exportPdfAsDocx(): Promise<void> {
       if (tabManager?.findDocsTabByPath(picked.filePath)) return
     }
     shellWindow.setProgressBar(2)
-    const bytes = await gskConvertPdfToDocx(tab.filePath)
+    const bytes = await codexConvertPdfToDocx(tab.filePath)
     writeFileSync(picked.filePath, bytes)
     openDocumentPath(picked.filePath)
   } catch (err) {
@@ -2462,9 +2356,9 @@ async function installMainProcessProxy(): Promise<void> {
   ].find((v) => v && /^https?:\/\//.test(v))
   if (!proxyUrl) {
     try {
-      // PAC/rule proxies answer per-host: probe the host the login flow, the
-      // Genspark LLM proxy and the gsk CLI actually target
-      const resolved = await session.defaultSession.resolveProxy('https://www.genspark.ai/')
+      // PAC/rule proxies answer per-host: probe a representative external AI
+      // endpoint (also what the Codex CLI and the OpenAI provider talk to)
+      const resolved = await session.defaultSession.resolveProxy('https://api.openai.com/')
       const m = /PROXY\s+([^;\s]+)/.exec(resolved)
       if (m) proxyUrl = `http://${m[1]}`
     } catch {
@@ -2472,9 +2366,9 @@ async function installMainProcessProxy(): Promise<void> {
     }
   }
   if (!proxyUrl) return
-  // spawned gsk CLI children (login/search/…) do their own fetch and never see
+  // spawned codex CLI children (login/search/…) do their own fetch and never see
   // the dispatcher below — forward the proxy to them via env
-  setGskProxyUrl(proxyUrl)
+  setAiCliProxyUrl(proxyUrl)
   try {
     const { ProxyAgent, setGlobalDispatcher } = await import('undici')
     setGlobalDispatcher(new ProxyAgent(proxyUrl))

@@ -73,13 +73,14 @@ tokens (`packages/ui`), with a CI guard that keeps chrome colors on the token
 system. Document surfaces stay light in dark mode — Word-style dark chrome
 around white paper — so files render and export identically in both themes.
 
-**AI backend (Genspark).** The apps sign in to a Genspark account through a
-device-code flow; no model API key is entered or stored by the user. Model
-calls route through the Genspark proxy (Claude, GPT, and Gemini families).
-The same account also unlocks the Genspark ("gsk") tool endpoints the agents
-build on — web and image search, image generation and editing,
-image/audio/video analysis, and audio transcription — all reachable through
-`packages/ai-search` for anyone extending the agent layer.
+**AI backend (Ollama + Codex CLI).** Chat/completion defaults to a local
+Ollama server (no API key, no account); Anthropic, Gemini, DeepSeek, OpenAI,
+and custom OpenAI-compatible endpoints are also selectable, each with the
+user's own key. Web and image search, image generation and editing,
+image/audio/video analysis, and audio transcription orchestrate through the
+OpenAI Codex CLI (`codex login`) — all reachable through `packages/ai-search`
+for anyone extending the agent layer, falling back to Serper/DuckDuckGo for
+search when Codex isn't signed in.
 
 ## Engine packages
 
@@ -95,7 +96,7 @@ All pure TypeScript, no Electron dependency, unit-tested (except the UI kit):
   every app.
 - `packages/ai-provider` — provider abstraction and streaming for the model
   backends.
-- `packages/ai-search` — Genspark auth + web/image search tools.
+- `packages/ai-search` — Codex CLI auth/orchestration + web/image search tools.
 - `packages/i18n`, `packages/ui`, `packages/project-store`,
   `packages/electron-utils` — shared i18n core, React UI kit, recent-files
   store, and Electron main-process helpers.

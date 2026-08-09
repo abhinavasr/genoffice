@@ -102,9 +102,9 @@ testing and local overrides:
 | `GENOFFICE_USER_DATA`                                    | Override the Electron userData directory (test isolation)              |
 | `GENOFFICE_LANG`                                         | Force the UI language instead of following the OS locale               |
 | `GENOFFICE_FAKE_UPDATE`                                  | Exercise the updater UI without a real release feed                    |
-| `GENOFFICE_CLOUD_SLIDE`, `GENOFFICE_CLOUD_SLIDE_TIER`    | Route slide generation through the cloud endpoint                      |
-| `GSK_API_KEY`, `GSK_CLI_PATH`                            | Genspark credentials / CLI location for the built-in AI provider       |
-| `AI_SEARCH_DISABLE_GSK`, `SERPER_API_KEY`                | Disable the gsk search backend / supply a Serper key instead           |
+| `GENOFFICE_CLOUD_SLIDE`                                  | Route slide generation through Codex instead of the local renderer     |
+| `CODEX_API_KEY`, `CODEX_CLI_PATH`, `CODEX_EXEC_ARGS`      | Codex CLI credentials / binary location / `codex exec` flag overrides  |
+| `AI_SEARCH_DISABLE_CODEX`, `SERPER_API_KEY`               | Disable the Codex search backend / supply a Serper key instead         |
 | `XLSX_SIDECAR_PATH`, `XLSX_OPEN_PATH`, `XLSX_DEBUG_PORT` | Point at a locally built xlsx sidecar and its debug port               |
 | `*_DEV_PORT`, `*_RENDERER_URL`                           | Per-app Vite dev server ports and renderer URLs (set by `npm run dev`) |
 
