@@ -45,9 +45,9 @@ const SKIP_DIR = /^(node_modules|out|dist|release|tests|__tests__|target)$/
 const IMPLICIT = ['electron']
 
 /**
- * Packages copied into the installer verbatim by electron-builder rather than
- * bundled — the gsk CLI and its runtime deps are spawned, never imported, so
- * they are invisible to the import scan.
+ * Packages copied into the installer verbatim by electron-builder's
+ * extraResources (native binaries, wasm, prebuilt module outputs) rather than
+ * bundled through a normal import, so they are invisible to the import scan.
  */
 function extraResourceSeeds() {
   // the electron-builder config lives in its own cjs module (not package.json
