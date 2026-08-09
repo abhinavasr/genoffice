@@ -41,7 +41,7 @@ import {
   type WebSearchResult,
 } from './shared'
 
-export { resolveCodexEntry } from './shared'
+export { resolveCodexEntry, setAiCliProxyUrl, aiCliProxyUrl } from './shared'
 export { hasCodexAuth } from './codex-auth'
 
 const EXEC_TIMEOUT_MS = 120_000
