@@ -37,7 +37,7 @@ describe('chatForProvider', () => {
 
   it('anthropic: replaces an HTML error body with a readable note', async () => {
     const html =
-      '<!doctype html>\n<html>\n<head><title>Genspark</title></head><body>app shell</body></html>'
+      '<!doctype html>\n<html>\n<head><title>Login</title></head><body>app shell</body></html>'
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(errorResponse(403, html)))
     const result = await chatForProvider('anthropic', { apiKey: 'k', model: 'm' }, 'sys', 'hi')
     expect(result.ok).toBe(false)
@@ -101,38 +101,33 @@ describe('chatForProvider', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('genspark: routes by model prefix to the proxy endpoints', async () => {
+  it('ollama: hits the local OpenAI-compatible endpoint by default', async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValue(jsonResponse({ content: [{ type: 'text', text: 'ok' }] }))
+      .mockResolvedValue(jsonResponse({ choices: [{ message: { content: 'ok' } }] }))
     vi.stubGlobal('fetch', fetchMock)
-    await chatForProvider('genspark', { apiKey: 'gsk-k', model: 'claude-opus-4-7' }, 'sys', 'hi')
+    await chatForProvider('ollama', { apiKey: 'ollama', model: 'gemma4' }, 'sys', 'hi')
     expect(fetchMock).toHaveBeenCalledWith(
-      'https://www.genspark.ai/api/anthropic/v1/messages',
-      expect.anything(),
-    )
-    fetchMock.mockResolvedValue(jsonResponse({ choices: [{ message: { content: 'ok' } }] }))
-    await chatForProvider('genspark', { apiKey: 'gsk-k', model: 'gpt-5.2' }, 'sys', 'hi')
-    expect(fetchMock).toHaveBeenLastCalledWith(
-      'https://www.genspark.ai/api/llm_proxy/v1/chat/completions',
+      'http://localhost:11434/v1/chat/completions',
       expect.anything(),
     )
   })
 
-  it('genspark: stamps X-Agent-Type; direct vendors do not get it', async () => {
+  it('ollama: honors a custom base URL (e.g. a remote Ollama server)', async () => {
     const fetchMock = vi
       .fn()
-      .mockImplementation(async () => jsonResponse({ content: [{ type: 'text', text: 'ok' }] }))
+      .mockResolvedValue(jsonResponse({ choices: [{ message: { content: 'ok' } }] }))
     vi.stubGlobal('fetch', fetchMock)
-    await chatForProvider('genspark', { apiKey: 'gsk-k', model: 'claude-opus-4-7' }, 'sys', 'hi')
-    expect((fetchMock.mock.calls[0]![1].headers as Record<string, string>)['X-Agent-Type']).toBe(
-      'genoffice',
+    await chatForProvider(
+      'ollama',
+      { apiKey: 'ollama', model: 'gemma4', baseUrl: 'http://192.168.1.10:11434/v1' },
+      'sys',
+      'hi',
     )
-    fetchMock.mockClear()
-    await chatForProvider('anthropic', { apiKey: 'k', model: 'claude-opus-4-7' }, 'sys', 'hi')
-    expect(
-      (fetchMock.mock.calls[0]![1].headers as Record<string, string>)['X-Agent-Type'],
-    ).toBeUndefined()
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://192.168.1.10:11434/v1/chat/completions',
+      expect.anything(),
+    )
   })
 
   it('treats an empty response body as an error', async () => {

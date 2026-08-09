@@ -1,4 +1,4 @@
-/** Search result types and shared constants (used by both the index and gsk backends) */
+/** Search result types and shared constants (used by both the index and the codex backend) */
 
 export interface WebSearchResult {
   title: string
@@ -39,17 +39,44 @@ export function firstItem(v: unknown): unknown {
   return Array.isArray(v) ? (v as unknown[])[0] : undefined
 }
 
+/** Path/name of the `codex` executable. Override via CODEX_CLI_PATH. */
+export function resolveCodexEntry(): string {
+  return process.env.CODEX_CLI_PATH || 'codex'
+}
+
+/**
+ * env for spawned `codex` processes: forwards the proxy registered by the
+ * apps' proxy bootstraps (codex reads standard proxy env vars itself).
+ */
+export function codexChildEnv(base: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = { ...base }
+  const proxy = [
+    aiCliProxyUrl(),
+    base.HTTPS_PROXY,
+    base.https_proxy,
+    base.HTTP_PROXY,
+    base.http_proxy,
+    base.ALL_PROXY,
+    base.all_proxy,
+  ].find((v) => v && /^https?:\/\//.test(v))
+  if (proxy) {
+    env.HTTPS_PROXY = proxy
+    env.HTTP_PROXY = proxy
+  }
+  return env
+}
+
 let explicitProxyUrl = ''
 
 /**
  * Proxy resolved by the apps' proxy bootstraps (env vars, else the system
- * proxy via session.resolveProxy); consumed by gskChildEnv() and the login
+ * proxy via session.resolveProxy); consumed by codexChildEnv() and the login
  * flow's proxy fallback.
  */
-export function setGskProxyUrl(url: string): void {
+export function setAiCliProxyUrl(url: string): void {
   explicitProxyUrl = url
 }
 
-export function gskProxyUrl(): string {
+export function aiCliProxyUrl(): string {
   return explicitProxyUrl
 }

@@ -7,15 +7,10 @@ export type {
   AiSettings,
   AiStreamChunk,
   AiStreamRequest,
-  GenSparkAccountStatus,
+  CodexAccountStatus,
   LegacyAiSettings,
 } from './types'
-export {
-  AI_PROVIDERS,
-  GENSPARK_LLM_BASE_URLS,
-  defaultAiSettings,
-  resolveAiSettings,
-} from './providers'
+export { AI_PROVIDERS, OLLAMA_DEFAULT_BASE_URL, defaultAiSettings, resolveAiSettings } from './providers'
 export { chatForProvider } from './chat'
 export { AiCreditsError, sseLines, streamForProvider } from './stream'
 export type { StreamCallbacks } from './stream'

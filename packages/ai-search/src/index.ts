@@ -1,9 +1,9 @@
 /**
- * Search utilities (main process) — gsk (Genspark CLI) first, then Serper Google API,
+ * Search utilities (main process) — Codex CLI first, then Serper Google API,
  * with DuckDuckGo as the last resort. The Serper/DuckDuckGo logic mirrors an earlier
  * web_search / google_image_search implementation. Runs in the main process
  * (Node fetch / child process) to avoid renderer CORS; the Serper key reuses SERPER_API_KEY.
- * For gsk auth see ./gsk.ts (`gsk login` or GSK_API_KEY).
+ * For Codex auth see ./codex-auth.ts (`codex login` or CODEX_API_KEY).
  */
 
 import {
@@ -13,11 +13,11 @@ import {
   type ImageSearchResult,
   type WebSearchResult,
 } from './shared'
-import { gskImageSearch, gskWebSearch, hasGskAuth } from './gsk'
+import { codexImageSearch, codexWebSearch, hasCodexAuth } from './codex'
 
 export type { ImageSearchResult, WebSearchResult } from './shared'
-export * from './gsk'
-export * from './genoffice-auth'
+export * from './codex'
+export * from './codex-auth'
 
 const SERPER_KEY = () => process.env.SERPER_API_KEY ?? ''
 
@@ -31,10 +31,10 @@ export async function webSearch(
   answer?: string
   method: string
 }> {
-  if (hasGskAuth()) {
+  if (hasCodexAuth()) {
     try {
-      const r = await gskWebSearch(query, maxResults)
-      if (r.results.length) return { ...r, method: 'gsk' }
+      const r = await codexWebSearch(query, maxResults)
+      if (r.results.length) return { ...r, method: 'codex' }
     } catch {
       /* fall back to Serper/DuckDuckGo */
     }
@@ -84,10 +84,10 @@ export async function imageSearch(
   images: ImageSearchResult[]
   method: string
 }> {
-  if (hasGskAuth()) {
+  if (hasCodexAuth()) {
     try {
-      const images = await gskImageSearch(query, maxResults)
-      if (images.length) return { images, method: 'gsk' }
+      const images = await codexImageSearch(query, maxResults)
+      if (images.length) return { images, method: 'codex' }
     } catch {
       /* fall back to Serper/DuckDuckGo */
     }

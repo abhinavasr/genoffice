@@ -4,13 +4,21 @@ import { AI_PROVIDERS, defaultAiSettings, resolveAiSettings } from '../src/provi
 describe('defaultAiSettings', () => {
   it('gives every provider its default model and an empty key by default', () => {
     const settings = defaultAiSettings()
-    expect(settings.provider).toBe('genspark')
+    expect(settings.provider).toBe('ollama')
     for (const meta of AI_PROVIDERS) {
+      if (meta.id === 'ollama') continue
       expect(settings.providers[meta.id].apiKey).toBe('')
       expect(settings.providers[meta.id].model).toBe(meta.defaultModel)
     }
     expect(settings.providers.custom.baseUrl).toBe('')
     expect(settings.providers.anthropic.baseUrl).toBeUndefined()
+  })
+
+  it('preconfigures Ollama with a local base URL and a placeholder key', () => {
+    const settings = defaultAiSettings()
+    expect(settings.providers.ollama.apiKey).toBe('ollama')
+    expect(settings.providers.ollama.model).toBe('gemma4')
+    expect(settings.providers.ollama.baseUrl).toBe('http://localhost:11434/v1')
   })
 
   it('applies caller-supplied default keys only to the listed providers', () => {

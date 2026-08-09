@@ -4,7 +4,7 @@
   "license": "Apache-2.0",
   "private": true,
   "type": "module",
-  "description": "Shared web/image search (Serper Google API + DuckDuckGo fallback) for docs/sheets/slides AI. No Electron deps; runs in main process (Node fetch).",
+  "description": "Codex CLI orchestration (image gen/media analysis/transcription/PDF conversion) plus web/image search (Codex first, then Serper Google API, then DuckDuckGo fallback) for docs/sheets/slides/pdf AI. No Electron deps; runs in main process (Node fetch/child_process).",
   "exports": {
     ".": "./src/index.ts"
   },
@@ -12,9 +12,6 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest"
-  },
-  "dependencies": {
-    "@genspark/cli": "^1.4.2"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",
